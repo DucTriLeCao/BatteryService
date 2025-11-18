@@ -1,0 +1,6 @@
+@BatteryService_HostAddress = http://localhost:5128
+
+GET {{BatteryService_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
