@@ -11,6 +11,7 @@ public class BatteryInventoryDto
     public int ChargeLevel { get; set; }
     public decimal SohPercentage { get; set; }
     public int TotalCycles { get; set; }
+    public Guid? StationId { get; set; }
     
     public Guid BatteryTypeId { get; set; }
     public string TypeCode { get; set; }

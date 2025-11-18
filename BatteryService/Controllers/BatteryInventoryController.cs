@@ -1,24 +1,39 @@
 using BatteryService.Application.DTOs;
 using BatteryService.Application.Services;
+using BatteryService.Domain.Repositories;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace BatteryService.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize(Roles = "Staff")]
+[Authorize(Roles = "staff")]
 public class BatteryInventoryController : ControllerBase
 {
     private readonly IBatteryInventoryService _inventoryService;
+    private readonly IStaffRepository _staffRepository;
     private readonly ILogger<BatteryInventoryController> _logger;
 
     public BatteryInventoryController(
         IBatteryInventoryService inventoryService,
+        IStaffRepository staffRepository,
         ILogger<BatteryInventoryController> logger)
     {
         _inventoryService = inventoryService;
+        _staffRepository = staffRepository;
         _logger = logger;
+    }
+
+    private async Task<Guid?> GetStaffStationIdAsync()
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
+            return null;
+
+        var staff = await _staffRepository.GetStaffByUserIdAsync(userId);
+        return staff?.StationId;
     }
 
     [HttpGet("summary")]
@@ -27,7 +42,13 @@ public class BatteryInventoryController : ControllerBase
     {
         try
         {
-            var summary = await _inventoryService.GetInventorySummaryAsync();
+            var stationId = await GetStaffStationIdAsync();
+            if (!stationId.HasValue)
+            {
+                return Unauthorized(ApiResponse<BatteryInventorySummaryDto>.ErrorResponse("Staff not found or not assigned to station"));
+            }
+
+            var summary = await _inventoryService.GetInventorySummaryAsync(stationId.Value);
             return Ok(ApiResponse<BatteryInventorySummaryDto>.SuccessResponse(summary));
         }
         catch (Exception ex)
@@ -37,13 +58,20 @@ public class BatteryInventoryController : ControllerBase
         }
     }
 
-    [HttpGet("all")]
+    [HttpGet]
     [ProducesResponseType(typeof(ApiResponse<List<BatteryInventoryDto>>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAllBatteries()
     {
         try
         {
-            var batteries = await _inventoryService.GetAllBatteriesAsync();
+            var stationId = await GetStaffStationIdAsync();
+            if (!stationId.HasValue)
+            {
+                return Unauthorized(ApiResponse<List<BatteryInventoryDto>>.ErrorResponse("Staff not found or not assigned to station"));
+            }
+
+            var filter = new BatteryFilterDto { StationId = stationId.Value };
+            var batteries = await _inventoryService.GetBatteryInventoryAsync(filter);
             return Ok(ApiResponse<List<BatteryInventoryDto>>.SuccessResponse(batteries));
         }
         catch (Exception ex)
@@ -60,10 +88,21 @@ public class BatteryInventoryController : ControllerBase
     {
         try
         {
+            var stationId = await GetStaffStationIdAsync();
+            if (!stationId.HasValue)
+            {
+                return Unauthorized(ApiResponse<BatteryInventoryDto>.ErrorResponse("Staff not found or not assigned to station"));
+            }
+
             var battery = await _inventoryService.GetBatteryDetailAsync(batteryId);
             if (battery == null)
             {
                 return NotFound(ApiResponse<BatteryInventoryDto>.ErrorResponse("Battery not found"));
+            }
+
+            if (battery.StationId != stationId.Value)
+            {
+                return Forbid();
             }
 
             return Ok(ApiResponse<BatteryInventoryDto>.SuccessResponse(battery));
@@ -81,9 +120,16 @@ public class BatteryInventoryController : ControllerBase
     {
         try
         {
+            var stationId = await GetStaffStationIdAsync();
+            if (!stationId.HasValue)
+            {
+                return Unauthorized(ApiResponse<List<BatteryInventoryDto>>.ErrorResponse("Staff not found or not assigned to station"));
+            }
+
             var filter = new BatteryFilterDto
             {
-                Statuses = new List<string> { "available" }
+                Statuses = new List<string> { "available" },
+                StationId = stationId.Value
             };
 
             var batteries = await _inventoryService.GetBatteryInventoryAsync(filter);
@@ -102,9 +148,16 @@ public class BatteryInventoryController : ControllerBase
     {
         try
         {
+            var stationId = await GetStaffStationIdAsync();
+            if (!stationId.HasValue)
+            {
+                return Unauthorized(ApiResponse<List<BatteryInventoryDto>>.ErrorResponse("Staff not found or not assigned to station"));
+            }
+
             var filter = new BatteryFilterDto
             {
-                Statuses = new List<string> { "charging" }
+                Statuses = new List<string> { "charging" },
+                StationId = stationId.Value
             };
 
             var batteries = await _inventoryService.GetBatteryInventoryAsync(filter);
@@ -123,9 +176,16 @@ public class BatteryInventoryController : ControllerBase
     {
         try
         {
+            var stationId = await GetStaffStationIdAsync();
+            if (!stationId.HasValue)
+            {
+                return Unauthorized(ApiResponse<List<BatteryInventoryDto>>.ErrorResponse("Staff not found or not assigned to station"));
+            }
+
             var filter = new BatteryFilterDto
             {
-                Statuses = new List<string> { "maintenance" }
+                Statuses = new List<string> { "maintenance" },
+                StationId = stationId.Value
             };
 
             var batteries = await _inventoryService.GetBatteryInventoryAsync(filter);
@@ -149,12 +209,19 @@ public class BatteryInventoryController : ControllerBase
     {
         try
         {
+            var stationId = await GetStaffStationIdAsync();
+            if (!stationId.HasValue)
+            {
+                return Unauthorized(ApiResponse<List<BatteryInventoryDto>>.ErrorResponse("Staff not found or not assigned to station"));
+            }
+
             var filter = new BatteryFilterDto
             {
                 Statuses = string.IsNullOrEmpty(status) ? null : new List<string> { status },
                 BatteryTypeIds = batteryTypeId.HasValue ? new List<Guid> { batteryTypeId.Value } : null,
                 MinCapacityKwh = minCapacity,
-                MaxCapacityKwh = maxCapacity
+                MaxCapacityKwh = maxCapacity,
+                StationId = stationId.Value
             };
 
             var batteries = await _inventoryService.GetBatteryInventoryAsync(filter);
@@ -176,6 +243,23 @@ public class BatteryInventoryController : ControllerBase
     {
         try
         {
+            var stationId = await GetStaffStationIdAsync();
+            if (!stationId.HasValue)
+            {
+                return Unauthorized(ApiResponse<bool>.ErrorResponse("Staff not found or not assigned to station"));
+            }
+
+            var battery = await _inventoryService.GetBatteryDetailAsync(batteryId);
+            if (battery == null)
+            {
+                return NotFound(ApiResponse<bool>.ErrorResponse("Battery not found"));
+            }
+
+            if (battery.StationId != stationId.Value)
+            {
+                return Forbid();
+            }
+
             _logger.LogInformation("Updating battery {BatteryId} status to {Status}", batteryId, request.Status);
 
             var result = await _inventoryService.UpdateBatteryStatusAsync(batteryId, request.Status);
@@ -206,6 +290,23 @@ public class BatteryInventoryController : ControllerBase
             if (request.ChargeLevel < 0 || request.ChargeLevel > 100)
             {
                 return BadRequest(ApiResponse<bool>.ErrorResponse("Charge level must be between 0 and 100"));
+            }
+
+            var stationId = await GetStaffStationIdAsync();
+            if (!stationId.HasValue)
+            {
+                return Unauthorized(ApiResponse<bool>.ErrorResponse("Staff not found or not assigned to station"));
+            }
+
+            var battery = await _inventoryService.GetBatteryDetailAsync(batteryId);
+            if (battery == null)
+            {
+                return NotFound(ApiResponse<bool>.ErrorResponse("Battery not found"));
+            }
+
+            if (battery.StationId != stationId.Value)
+            {
+                return Forbid();
             }
 
             _logger.LogInformation("Updating battery {BatteryId} charge level to {ChargeLevel}", batteryId, request.ChargeLevel);

@@ -94,18 +94,31 @@ public class BatteryRepository : IBatteryRepository
             .FirstOrDefaultAsync(b => b.BatteryId == batteryId);
     }
 
-    public async Task<Dictionary<string, int>> GetBatteryCountByStatusAsync()
+    public async Task<Dictionary<string, int>> GetBatteryCountByStatusAsync(Guid? stationId = null)
     {
-        return await _context.Batteries
+        var query = _context.Batteries.AsQueryable();
+        
+        if (stationId.HasValue)
+        {
+            query = query.Where(b => b.StationId == stationId.Value);
+        }
+        
+        return await query
             .GroupBy(b => b.Status)
             .Select(g => new { Status = g.Key, Count = g.Count() })
             .ToDictionaryAsync(x => x.Status, x => x.Count);
     }
 
-    public async Task<List<BatteryTypeStatistics>> GetBatteryStatisticsByTypeAsync()
+    public async Task<List<BatteryTypeStatistics>> GetBatteryStatisticsByTypeAsync(Guid? stationId = null)
     {
-        return await _context.Batteries
-            .Include(b => b.BatteryType)
+        var query = _context.Batteries.Include(b => b.BatteryType).AsQueryable();
+        
+        if (stationId.HasValue)
+        {
+            query = query.Where(b => b.StationId == stationId.Value);
+        }
+        
+        return await query
             .GroupBy(b => new
             {
                 b.BatteryTypeId,
@@ -131,10 +144,16 @@ public class BatteryRepository : IBatteryRepository
             .ToListAsync();
     }
 
-    public async Task<List<BatteryCapacityStatistics>> GetBatteryStatisticsByCapacityAsync()
+    public async Task<List<BatteryCapacityStatistics>> GetBatteryStatisticsByCapacityAsync(Guid? stationId = null)
     {
-        return await _context.Batteries
-            .Include(b => b.BatteryType)
+        var query = _context.Batteries.Include(b => b.BatteryType).AsQueryable();
+        
+        if (stationId.HasValue)
+        {
+            query = query.Where(b => b.StationId == stationId.Value);
+        }
+        
+        return await query
             .GroupBy(b => b.BatteryType.CapacityKwh)
             .Select(g => new BatteryCapacityStatistics
             {

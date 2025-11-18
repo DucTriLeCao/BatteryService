@@ -11,6 +11,7 @@ builder.Services.AddDbContext<ev_battery_swapContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 builder.Services.AddScoped<IBatteryRepository, BatteryRepository>();
+builder.Services.AddScoped<IStaffRepository, StaffRepository>();
 builder.Services.AddScoped<IBatteryInventoryService, BatteryInventoryService>();
 
 builder.Services.AddJwtAuthentication(builder.Configuration);

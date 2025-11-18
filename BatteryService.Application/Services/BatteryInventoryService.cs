@@ -36,6 +36,7 @@ public class BatteryInventoryService : IBatteryInventoryService
             ChargeLevel = b.ChargeLevel,
             SohPercentage = b.SohPercentage,
             TotalCycles = b.TotalCycles,
+            StationId = b.StationId,
             BatteryTypeId = b.BatteryTypeId,
             TypeCode = b.BatteryType?.TypeCode,
             TypeName = b.BatteryType?.TypeName,
@@ -91,6 +92,7 @@ public class BatteryInventoryService : IBatteryInventoryService
             ChargeLevel = battery.ChargeLevel,
             SohPercentage = battery.SohPercentage,
             TotalCycles = battery.TotalCycles,
+            StationId = battery.StationId,
             BatteryTypeId = battery.BatteryTypeId,
             TypeCode = battery.BatteryType?.TypeCode,
             TypeName = battery.BatteryType?.TypeName,
@@ -104,11 +106,11 @@ public class BatteryInventoryService : IBatteryInventoryService
         };
     }
 
-    public async Task<BatteryInventorySummaryDto> GetInventorySummaryAsync()
+    public async Task<BatteryInventorySummaryDto> GetInventorySummaryAsync(Guid? stationId = null)
     {
-        var statusCounts = await _batteryRepository.GetBatteryCountByStatusAsync();
-        var typeStatistics = await _batteryRepository.GetBatteryStatisticsByTypeAsync();
-        var capacityStatistics = await _batteryRepository.GetBatteryStatisticsByCapacityAsync();
+        var statusCounts = await _batteryRepository.GetBatteryCountByStatusAsync(stationId);
+        var typeStatistics = await _batteryRepository.GetBatteryStatisticsByTypeAsync(stationId);
+        var capacityStatistics = await _batteryRepository.GetBatteryStatisticsByCapacityAsync(stationId);
 
         return new BatteryInventorySummaryDto
         {

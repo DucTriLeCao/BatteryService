@@ -17,9 +17,9 @@ public interface IBatteryRepository
         string searchText = null);
 
     Task<Battery> GetBatteryByIdAsync(Guid batteryId);
-    Task<Dictionary<string, int>> GetBatteryCountByStatusAsync();
-    Task<List<BatteryTypeStatistics>> GetBatteryStatisticsByTypeAsync();
-    Task<List<BatteryCapacityStatistics>> GetBatteryStatisticsByCapacityAsync();
+    Task<Dictionary<string, int>> GetBatteryCountByStatusAsync(Guid? stationId = null);
+    Task<List<BatteryTypeStatistics>> GetBatteryStatisticsByTypeAsync(Guid? stationId = null);
+    Task<List<BatteryCapacityStatistics>> GetBatteryStatisticsByCapacityAsync(Guid? stationId = null);
     Task<bool> UpdateBatteryStatusAsync(Guid batteryId, string status);
     Task<bool> UpdateBatteryChargeLevelAsync(Guid batteryId, int chargeLevel);
 }
